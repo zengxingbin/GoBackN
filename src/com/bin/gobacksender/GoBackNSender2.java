@@ -69,6 +69,9 @@ public class GoBackNSender2 {
     private boolean isOver = false;
     // 统计已确认分组的个数
     private int counter = 0;
+    //确认丢失概率
+    private static double packLoss = 0.2;
+    private Random rand = new Random();
     // 分组备份，已发送等待确认
     private ConcurrentLinkedQueue<GoBackNPackage> packageBak = new ConcurrentLinkedQueue<>();
     
@@ -159,9 +162,7 @@ public class GoBackNSender2 {
             if (System.currentTimeMillis() > packageBak.peek().getTimeout())
                 throw new SocketTimeoutException();
             byte seqNum = receiveAckPack(packageBak.peek().getTimeout() - System.currentTimeMillis());
-            // ---这里可以模拟确认丢失
-
-            // -------------
+            
             // 判断此确认，是待确认分组队列中的哪一个分组的确认
             Iterator<GoBackNPackage> iterator = packageBak.iterator();
             boolean flag = false;// 发送过来的确认，是待确认分组队列中的其中一个确认
@@ -173,22 +174,32 @@ public class GoBackNSender2 {
                 }
             }
             if (flag) {
+             // ---这里可以模拟确认丢失
+                double rate = rand.nextInt(11) / 10.0;
+                if(rate <= packLoss) {
+                    System.out.println("第" + seqNum + "个分组的确认丢失!");
+                    return;
+                }
+             // -------------
                 // 每收到一个分组的确认，窗口向前滑动一个位置
                 while (start < seqNum + 1) {
-                    start++;// 窗口移动
-                    counter++;// 确认个数加一
                     // 从待确认的分组队列中移除已经确认的分组
                     if (!packageBak.isEmpty()) {
                         GoBackNPackage goBackNPackage = packageBak.remove();
                         goBackNPackage.setType(GoBackNPackage.ACK_TYPE);
-                        System.out.println("确认分组:" + goBackNPackage);
+                        //
+                        if(goBackNPackage.getSequenceNum() == seqNum)
+                            System.out.println("确认分组:" + goBackNPackage);
                         this.notify();
                     }
+                    start++;// 窗口移动
+                    counter++;// 确认个数加一
 
                 }
 
             } else {
                 // 如果不是待确认队列中分组的确认（可能是迟到的确认），什么也不做，即丢弃这个确认
+                System.out.println("分组" + seqNum + "确认迟到，将别丢弃！");
             }
 
         } catch (SocketTimeoutException e) {
@@ -211,7 +222,7 @@ public class GoBackNSender2 {
     public void sendData(byte type, byte seqNum, byte charData) {
         // 创建GoBackNPackage
         GoBackNPackage goNPackage = new GoBackNPackage(type, seqNum, charData);
-        goNPackage.setTimeout(System.currentTimeMillis() + 250);// 设置超时时间
+        goNPackage.setTimeout(System.currentTimeMillis() + 500);// 设置超时时间
         System.out.println("发送分组" + goNPackage);
         // 加入已发送待确认队列
         packageBak.add(goNPackage);

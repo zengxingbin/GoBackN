@@ -6,6 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.bin.util.GoBackNPackage;
 
@@ -18,6 +19,8 @@ public class GoBackReceiver {
     //期待收到的下一个分组的编号
     private byte expectedSeqNum;
     StringBuffer message = new StringBuffer();
+    //分组缓存，用于模拟分组的失序
+    private ConcurrentLinkedQueue<DatagramPacket> packBuff = new ConcurrentLinkedQueue<>();
     // 构造一个GoBackReceiver
     public GoBackReceiver(int port) throws SocketException {
         this.receiverSocket = new DatagramSocket(port);// 绑定指定的端口
@@ -82,6 +85,7 @@ public class GoBackReceiver {
         double packetLoss = 0.2;
         double badPacketRate = 0.2;
         double disorderRate = 0.2;
+        double lateRate = 0.1;
         Random rand = new Random();
         double percentage;
         boolean flag = true;
@@ -90,6 +94,13 @@ public class GoBackReceiver {
             DatagramPacket p = new DatagramPacket(buf, buf.length);
             try {
                 receiverSocket.receive(p);
+                /*//将收到的udp数据包缓存起来，先不进行确认，用来模拟失序的状态
+                double disorderPosi = rand.nextInt(11) / 10.0;
+                if(disorderPosi <= disorderRate)
+                    packBuff.add(p);
+                if(!packBuff.isEmpty()) {
+                    
+                }*/
                 GoBackNPackage goNPackage = new GoBackNPackage(p);
                 if(goNPackage.getType() == GoBackNPackage.DISCONNECTION_TYPE) {
                     //传输完毕，打印接收到的信息
@@ -127,6 +138,13 @@ public class GoBackReceiver {
                     message.append((char)goNPackage.getData());
                     //发送确认分组
                     sendAckPack(expectedSeqNum);
+                    //模拟确认迟到，发送迟到的(重复)确认，随机产生expectedSeqNum之前的确认分组序号
+                    double latePossibility = rand.nextInt(11) / 10.0;
+                    if(latePossibility <= lateRate) {
+                        int randSeqNum = rand.nextInt((int)expectedSeqNum);
+                        System.out.println("发送迟到的确认" + randSeqNum);
+                        sendAckPack((byte)randSeqNum);
+                    }
                     //期待收到的下一个分组
                     expectedSeqNum++;
                 }else {
@@ -139,7 +157,9 @@ public class GoBackReceiver {
                      */
                     if(goNPackage.getSequenceNum() < expectedSeqNum) {
                         //收到的是重复的分组
-                        System.out.println("收到重复分组:" + goNPackage);
+                        System.out.println("收到重复分组:" + goNPackage + "丢弃此分组");
+                        //并发送对此分组的确认
+                        sendAckPack(goNPackage.getSequenceNum());
                     }else if(expectedSeqNum < goNPackage.getSequenceNum()) {
                         System.out.println("期待收到第" + expectedSeqNum + "个分组，但收到第" + goNPackage.getSequenceNum()
                         + "个分组:" + goNPackage + "丢弃此分组,第" + expectedSeqNum + "~" + (goNPackage.getSequenceNum()-1) + 
@@ -147,9 +167,9 @@ public class GoBackReceiver {
                         
                     }
                     //发送对上一个分组的确认
-                    sendAckPack(--expectedSeqNum);
+                    //sendAckPack(--expectedSeqNum);
                     //期待收到下一个分组
-                    expectedSeqNum++;
+                    //expectedSeqNum++;
                 }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
