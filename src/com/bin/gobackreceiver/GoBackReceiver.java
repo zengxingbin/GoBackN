@@ -1,4 +1,4 @@
-package com.bin.gobacksender;
+package com.bin.gobackreceiver;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
