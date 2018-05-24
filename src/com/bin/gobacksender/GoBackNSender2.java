@@ -187,7 +187,7 @@ public class GoBackNSender2 {
                     if (!packageBak.isEmpty()) {
                         GoBackNPackage goBackNPackage = packageBak.remove();
                         goBackNPackage.setType(GoBackNPackage.ACK_TYPE);
-                        //
+                        //只对seqNum分组发出确认，表示前面的分组的确认都已经正确收到了
                         if(goBackNPackage.getSequenceNum() == seqNum)
                             System.out.println("确认分组:" + goBackNPackage);
                         this.notify();
