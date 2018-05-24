@@ -132,7 +132,6 @@ public class GoBackNSender {
                                     counter++;// 确认个数加一
                                     // 从待确认的分组队列中移除已经确认的分组
                                     if (!packageBak.isEmpty()) {
-                                        
                                         GoBackNPackage goBackNPackage = packageBak.remove();
                                         goBackNPackage.setType(GoBackNPackage.ACK_TYPE);
                                         System.out.println("确认分组:" + goBackNPackage);
