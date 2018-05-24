@@ -21,6 +21,7 @@ class Sender implements Runnable {
     public void run() {
         while(true) {
             if(goBackNSender.isOver()) {
+                
              // 发送断开连接请求分组
                 goBackNSender.sendData(GoBackNPackage.DISCONNECTION_TYPE, (byte) goBackNSender.getNextSeqNum(), (byte) '$');
                 System.out.println("发送结束！");
